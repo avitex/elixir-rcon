@@ -7,8 +7,8 @@ defmodule RCON.Packet do
 		body_size = byte_size(body)
 
 		# Minecraft only supports a request payload length of max 1446 byte.
-        # However some tests showed that only requests with a payload length
-        # of 1413 byte or lower work reliably.
+		# However some tests showed that only requests with a payload length
+		# of 1413 byte or lower work reliably.
 		if body_size > 1413 do
 			{:error, "RCON command too long"}
 		else
