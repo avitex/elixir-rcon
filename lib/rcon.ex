@@ -12,7 +12,7 @@ defmodule RCON do
 		     {:ok, _, %{type: :auth_resp, id: ^packet_id}} <- recv(conn) do
 			{:ok, conn}
 		else
-			{:ok, _, %{type: :auth_resp, id: -1}} -> {:error, "Authenication failed"}
+			{:ok, _, %{type: :auth_resp, id: -1}} -> {:error, "Authentication failed"}
 			{:ok, _, %{type: type, id: id}} -> {:error, "Mismatched packet id (#{id}) or type (#{type})"}
 			{:error, err} -> {:error, err}
 		end
@@ -31,10 +31,10 @@ defmodule RCON do
 					id == cmd_id -> exec_recv(args, body <> new_body)
 					id == end_id -> {:ok, conn, body}
 					# Drop packets not that are not being tracked.
-					# For example the previous second exec_resp for multi-packet
-					# responses (<<0,1,0,0>>). This is because we would block
-					# forever if you got the password wrong, as the second
-					# exec_resp isn't sent for some reason.
+					# This is because we can block forever if you get
+					# the password wrong (tested with CS:GO server Nov 2016)
+					# as the second exec_resp isn't sent for some reason.
+					# https://developer.valvesoftware.com/wiki/Source_RCON_Protocol#Multiple-packet_Responses
 					true -> exec_recv(args, body)
 				end
 			{:ok, _, %{type: type}} -> {:error, "Unexpected packet type: #{type}"}
