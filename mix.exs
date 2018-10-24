@@ -6,8 +6,8 @@ defmodule Rcon.Mixfile do
 			app: :rcon,
 			version: "0.1.0",
 			elixir: "~> 1.3",
-			deps: deps,
-			package: package,
+			deps: deps(),
+			package: package(),
 			description: "Source compatible RCON implementation.",
 		]
 	end
