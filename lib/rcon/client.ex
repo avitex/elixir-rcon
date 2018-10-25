@@ -58,7 +58,7 @@ defmodule RCON.Client do
 		     do: exec_recv({conn, cmd_id, end_id}, "") # Receive the response.
 	end
 
-	@spec exec_recv({connection, Packet.id, Packet.id}, Packet.body)
+	@spec exec_recv({connection, Packet.id, Packet.id}, Packet.body) :: {:ok, connection, Packet.body} | {:error, binary}
 	defp exec_recv(args = {conn, cmd_id, end_id}, body) do
 		case recv(conn) do
 			{:ok, {:exec_resp, id, new_body, _}} ->
