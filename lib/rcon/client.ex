@@ -22,7 +22,7 @@ defmodule RCON.Client do
 	@spec connect(Socket.Address.t, :inet.port_number, options) :: {:ok, connection} | {:error, Socket.Error.t}
 	def connect(address, port, options \\ []) do
 		timeout = Keyword.get(options, :timeout, :infinity)
-		with {:ok, socket} <- Socket.TCP.connect(address, port, [:binary, active: false, timeout: timeout]) do
+		with {:ok, socket} <- Socket.TCP.connect(address, port, [timeout: timeout, as: :binary]) do
 			{:ok, {socket, Packet.initial_id}}
 		end
 	end
@@ -32,14 +32,27 @@ defmodule RCON.Client do
 	"""
 	@spec authenticate(connection, binary) :: {:ok, connection} | {:error, binary}
 	def authenticate(conn, password) do
-		with {:ok, conn, packet_id} <- send(conn, :auth, password),
-		     {:ok, _, {:exec_resp, ^packet_id, _, _}} <- recv(conn),
-		     {:ok, _, {:auth_resp, ^packet_id, _, _}} <- recv(conn) do
-			{:ok, conn}
-		else
-			{:ok, _, {:auth_resp, @auth_failed_id}} -> {:error, @auth_failed_error}
-			{:ok, _, {bad_kind, bad_id}} -> {:error, @unexpected_packet_error <> ": #{bad_id}, #{bad_kind}"}
-			{:error, err} -> {:error, err}
+		with {:ok, conn, packet_id} <- send(conn, :auth, password) do
+			authenticate_recv(conn, packet_id)
+		end
+	end
+
+	@spec authenticate_recv(connection, Packet.id) :: {:ok, connection} | {:error, binary}
+	defp authenticate_recv(conn, packet_id) do
+		case recv(conn) do
+			# Drop any exec_resp packets (was a problem with CSGO?)
+			# TODO: Check that this is still needed.
+			{:ok, {:exec_resp, ^packet_id, _, _}} ->
+				authenticate_recv(conn, packet_id)
+			# Handle successful auth
+			{:ok, {:auth_resp, ^packet_id, _, _}} ->
+				{:ok, conn}
+			{:ok, {:auth_resp, @auth_failed_id, _, _}} ->
+				{:error, @auth_failed_error}
+			{:ok, {bad_kind, bad_id, _, _}} ->
+				{:error, @unexpected_packet_error <> ": #{bad_id}, #{bad_kind}"}
+			{:error, err} ->
+				{:error, err}
 		end
 	end
 
@@ -88,7 +101,7 @@ defmodule RCON.Client do
 	@spec send(connection, Packet.kind, Packet.body) :: {:ok, connection, Packet.id} | {:error, binary}
 	def send(conn, kind, body) do
 		{socket, packet_id} = conn = increment_packet_id(conn)
-		with {:ok, packet_raw} <- Packet.create_and_encode(kind, packet_id, body, :client),
+		with {:ok, packet_raw} <- Packet.create_and_encode(kind, body, packet_id, :client),
 		     :ok <- Socket.Stream.send(socket, packet_raw),
 		     do: {:ok, conn, packet_id}
 	end

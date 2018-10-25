@@ -21,7 +21,7 @@
 ## Usage
 
   ```elixir
-  {:ok, conn} = RCON.Client.connect({10, 0, 0, 1}, 27084)
+  {:ok, conn} = RCON.Client.connect("127.0.0.1", 27084)
   {:ok, conn} = RCON.Client.authenticate(conn, "password")
   {:ok, _conn, result} = RCON.Client.exec(conn, "status")
   

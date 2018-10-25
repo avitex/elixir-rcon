@@ -158,7 +158,7 @@ defmodule RCON.Packet do
 	"""
 	@spec decode_size(binary) :: {:ok, size} | {:error, binary}
 	def decode_size(size_bytes) do
-		if byte_size(size_bytes) == @size_part_len do
+		if !is_nil(size_bytes) and byte_size(size_bytes) == @size_part_len do
 			<< size :: 32-signed-integer-little >> = size_bytes
 			{:ok, size}
 		else
