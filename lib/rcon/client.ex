@@ -48,9 +48,14 @@ defmodule RCON.Client do
 	"""
 	@spec exec(connection, binary) :: {:ok, connection, binary} | {:error, binary}
 	def exec(conn, command) do
-		with {:ok, conn, cmd_id} <- send(conn, :exec, command),
-		     {:ok, conn, end_id} <- send(conn, :exec_resp, ""),
-		     do: exec_recv({conn, cmd_id, end_id}, "")
+		# We first send the command, followed by sending an empty exec_resp.
+		# The RCON server should respond in order of the messages received,
+		# and also mirror back the empty exec_resp.
+		# This allows us to easily handle multi-packet responses.
+		# https://developer.valvesoftware.com/wiki/Source_RCON_Protocol#Multiple-packet_Responses
+		with {:ok, conn, cmd_id} <- send(conn, :exec, command), # Send the command
+		     {:ok, conn, end_id} <- send(conn, :exec_resp, ""), # Send an empty exec_resp
+		     do: exec_recv({conn, cmd_id, end_id}, "") # Receive the response.
 	end
 
 	@spec exec_recv({connection, Packet.id, Packet.id}, Packet.body)
@@ -58,13 +63,16 @@ defmodule RCON.Client do
 		case recv(conn) do
 			{:ok, {:exec_resp, id, new_body, _}} ->
 				cond do
+					# If the id of the packet is the same as the command we sent,
+					# the packet contains the response, or part of.
 					id == cmd_id -> exec_recv(args, body <> new_body)
+					# If the id of the packet is the same of the empty exec_resp we sent,
+					# we have reached the end of the response.
 					id == end_id -> {:ok, conn, body}
 					# Drop packets not that are not being tracked.
 					# This is because we can block forever if you get
 					# the password wrong (tested with CS:GO server Nov 2016)
 					# as the second exec_resp isn't sent for some reason.
-					# https://developer.valvesoftware.com/wiki/Source_RCON_Protocol#Multiple-packet_Responses
 					true -> exec_recv(args, body)
 				end
 			{:ok, {kind, _, _, _}} ->
