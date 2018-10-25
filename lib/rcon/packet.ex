@@ -3,27 +3,25 @@ defmodule RCON.Packet do
 	Module for handling RCON packets.
 	"""
 
-	# Constant sizes.
-	@header_part_size 8
-	@terminator_part_size 2
-
-	# Minecraft only supports a request payload length of max 1446 byte.
-	# However some tests showed that only requests with a payload length
-	# of 1413 byte or lower work reliably.
-	@max_body_size 1413
-
-	# Max ID value a packet may have (signed int32, 2^31 - 1)
-	@max_id 2147483647
-
-	# Initial packet ID
 	@initial_id 0
+	@auth_failed_id -1
 
 	# Null-term string, and packet terminator
 	@terminator_part <<0, 0>>
 
+	# Packet part lengths
+	@size_part_len 4
+	@id_part_len 4
+	@kind_part_len 4
+
+	@max_id 2147483647
+	@max_body_len 1413
+	@min_size @id_part_len + @kind_part_len + byte_size(@terminator_part)
+
 	@type t :: {kind, id, body, from}
 	@type raw :: binary
 
+	@type size :: integer
 	@type id :: integer
 	@type kind :: :exec | :exec_resp | :auth | :auth_resp
 	@type kind_code :: 0 | 2 | 3
@@ -31,15 +29,64 @@ defmodule RCON.Packet do
 	@type from :: :client | :server
 
 	@malformed_packet_error "Malformed packet"
-	@packet_body_size_error "Packet body too large"
+	@packet_body_len_error "Packet body too large"
 	@bad_packet_kind_error "Bad packet kind"
 	@bad_packet_kind_code_error "Bad packet kind code"
+	@bad_packet_size_error "Bad packet size"
+
+	@doc """
+	Returns the length in bytes of the packet size part.
+	"""
+	@spec size_part_len :: integer
+	def size_part_len, do: @size_part_len
+
+	@doc """
+	Returns the length in bytes of the packet id part.
+	"""
+	@spec id_part_len :: integer
+	def id_part_len, do: @id_part_len
+
+	@doc """
+	Returns the length in bytes of the packet kind part.
+	"""
+	@spec kind_part_len :: integer
+	def kind_part_len, do: @kind_part_len
+
+	@doc """
+	Returns the initial packet ID value.
+	"""
+	@spec initial_id :: id
+	def initial_id, do: @initial_id
+
+	@doc """
+	Returns the packet ID used for auth failure.
+	"""
+	@spec auth_failed_id :: id
+	def auth_failed_id, do: @auth_failed_id
 
 	@doc """
 	Returns the max possible value a packet ID may have.
+
+	Value from signed int32 max (`2^31 - 1`).
 	"""
-	@spec max_id :: integer
+	@spec max_id :: id
 	def max_id, do: @max_id
+
+	@doc """
+	The smallest value packet size may be.
+	"""
+	@spec min_size :: size
+	def min_size, do: @min_size
+
+	@doc """
+	Returns the maximum size a body may have.
+
+	Minecraft only supports a request payload length of max 1446 byte.
+	However some tests showed that only requests with a payload length
+	of 1413 byte or lower work reliably.
+	"""
+	@spec max_body_len :: integer
+	def max_body_len, do: @max_body_len
 
 	@doc """
 	Returns the kind for a packet.
@@ -60,10 +107,12 @@ defmodule RCON.Packet do
 	def body({_, _, body, _}), do: body
 
 	@doc """
-	Returns the body size for a packet.
+	Returns the body length in bytes for a packet.
+
+	Does not include the null character.
 	"""
-	@spec body_size(t) :: integer
-	def body_size({_, body, _, _}), do: byte_size(body)
+	@spec body_len(t) :: integer
+	def body_len({_, _, body, _}), do: byte_size(body)
 
 	@doc """
 	Returns from what side the packet was sent from.
@@ -93,8 +142,8 @@ defmodule RCON.Packet do
 	@spec encode(t) :: {:ok, raw} | {:error, binary}
 	def encode(packet) do
 		with {:ok, {kind, id, body, from}} <- check_packet(packet),
-		     {:ok, kind_code} <- kind_to_code(kind, from) do
-			size = @header_part_size + byte_size(body) + @terminator_part_size
+			 {:ok, kind_code} <- kind_to_code(kind, from) do
+			size = byte_size(body) + @min_size
 			header = <<
 				size      :: 32-signed-integer-little,
 				id        :: 32-signed-integer-little,
@@ -105,11 +154,24 @@ defmodule RCON.Packet do
 	end
 
 	@doc """
-	Decodes a packet from transmission.
+	Decodes a packet size.
 	"""
-	@spec decode(integer, binary, from) :: {:ok, t} | {:error, binary}
-	def decode(size, payload, from \\ :server) do
-		body_size = size - @header_part_size - @terminator_part_size
+	@spec decode_size(binary) :: {:ok, size} | {:error, binary}
+	def decode_size(size_bytes) do
+		if byte_size(size_bytes) == @size_part_len do
+			<< size :: 32-signed-integer-little >> = size_bytes
+			{:ok, size}
+		else
+			{:error, @bad_packet_size_error}
+		end
+	end
+
+	@doc """
+	Decodes a packet payload from transmission.
+	"""
+	@spec decode_payload(size, binary, from) :: {:ok, t} | {:error, binary}
+	def decode_payload(size, payload, from \\ :server) do
+		body_size = size - @min_size
 		case payload do
 			<<
 				id        :: 32-signed-integer-little,
@@ -138,15 +200,15 @@ defmodule RCON.Packet do
 	"""
 	@spec kind_to_code(kind, from) :: {:ok, kind_code} | {:error, binary}
 	def kind_to_code(:exec_resp, _), do: {:ok, 0}
-	def kind_to_code(:auth_resp, :client), do: {:ok, 2}
-	def kind_to_code(:exec, :server), do: {:ok, 2}
+	def kind_to_code(:exec, :client), do: {:ok, 2}
+	def kind_to_code(:auth_resp, :server), do: {:ok, 2}
 	def kind_to_code(:auth, _), do: {:ok, 3}
 	def kind_to_code(_, _), do: {:error, @bad_packet_kind_error}
 
 	defp check_packet(packet) do
 		cond do
-			body_size(packet) > @max_body_size ->
-				{:error, @packet_body_size_error}
+			body_len(packet) > @max_body_len ->
+				{:error, @packet_body_len_error}
 			true ->
 				{:ok, packet}
 		end

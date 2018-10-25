@@ -21,12 +21,9 @@
 ## Usage
 
   ```elixir
-  {:ok, conn} = RCON.connect({10, 0, 0, 1}, 27084)
-  {:ok, conn} = RCON.authenticate(conn, "password")
-  {:ok, _conn, result} = RCON.exec(conn, "status")
+  {:ok, conn} = RCON.Client.connect({10, 0, 0, 1}, 27084)
+  {:ok, conn} = RCON.Client.authenticate(conn, "password")
+  {:ok, _conn, result} = RCON.Client.exec(conn, "status")
   
   IO.inspect result
   ```
-
-## TODO
-- Add tests and documentation
