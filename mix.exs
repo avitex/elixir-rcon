@@ -1,4 +1,4 @@
-defmodule Rcon.Mixfile do
+defmodule RCON.Mixfile do
 	use Mix.Project
 	
 	@description """
@@ -7,7 +7,7 @@ defmodule Rcon.Mixfile do
 
 	def project, do: [
 		app: :rcon,
-		version: "0.1.0",
+		version: "0.2.0",
 		elixir: "~> 1.7",
 		deps: deps(),
 		package: package(),

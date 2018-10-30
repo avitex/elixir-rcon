@@ -1,16 +1,22 @@
+[![Build Status](https://travis-ci.org/avitex/elixir-rcon.svg)](https://travis-ci.org/avitex/elixir-rcon)
+[![Hex.pm](https://img.shields.io/hexpm/v/rcon.svg)](https://hex.pm/packages/rcon)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-blue.svg)](https://hexdocs.pm/rcon)
+
 # RCON
 
-**Source compatible RCON implementation**
+**Implementation of the [Source RCON Protocol](https://developer.valvesoftware.com/wiki/Source_RCON_Protocol).**
+Documentation hosted on [hexdocs](https://hexdocs.pm/rcon).
 
 ## Installation
 
   Add `rcon` to your list of dependencies in `mix.exs`:
-  
+
   ```elixir
   def deps do
-    [{:rcon, "~> 0.1.0"}]
+    [{:rcon, "~> 0.2.0"}]
   end
   ```
+
 ## Features
 
   - Source compatible *(should work with CS:GO, Minecraft, etc)*
