@@ -1,17 +1,23 @@
 defmodule RCON.Mixfile do
 	use Mix.Project
-	
+
+	@version "0.2.0"
+
 	@description """
 	Source compatible RCON implementation
 	"""
 
 	def project, do: [
 		app: :rcon,
-		version: "0.2.0",
+		version: @version,
 		elixir: "~> 1.7",
 		deps: deps(),
 		package: package(),
-		description: @description
+		description: @description,
+
+		# Documentation
+		name: "RCON",
+		docs: docs()
 	]
 
 	# Configuration for the OTP application
@@ -30,5 +36,11 @@ defmodule RCON.Mixfile do
 		maintainers: ["James Dyson"],
 		licenses: ["MIT"],
 		links: %{"GitHub" => "https://github.com/avitex/elixir-rcon"}
+	]
+
+	defp docs, do: [
+		extras: ["README.md"],
+		main: "readme",
+		source_url: "https://github.com/avitex/elixir-rcon"
 	]
 end

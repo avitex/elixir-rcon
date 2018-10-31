@@ -92,19 +92,19 @@ defmodule RCON.Packet do
 	Returns the kind for a packet.
 	"""
 	@spec kind(t) :: kind
-	def kind({kind, _, _, _}), do: kind
+	def kind(_packet = {kind, _, _, _}), do: kind
 
 	@doc """
 	Returns the ID for a packet.
 	"""
 	@spec id(t) :: id
-	def id({_, id, _, _}), do: id
+	def id(_packet = {_, id, _, _}), do: id
 
 	@doc """
 	Returns the body for a packet.
 	"""
 	@spec body(t) :: body
-	def body({_, _, body, _}), do: body
+	def body(_packet = {_, _, body, _}), do: body
 
 	@doc """
 	Returns the body length in bytes for a packet.
@@ -112,13 +112,13 @@ defmodule RCON.Packet do
 	Does not include the null character.
 	"""
 	@spec body_len(t) :: integer
-	def body_len({_, _, body, _}), do: byte_size(body)
+	def body_len(_packet = {_, _, body, _}), do: byte_size(body)
 
 	@doc """
 	Returns from what side the packet was sent from.
 	"""
 	@spec from(t) :: from
-	def from({_, _, _, from}), do: from
+	def from(_packet = {_, _, _, from}), do: from
 
 	@doc """
 	Creates and encodes a packet in one step.
@@ -189,6 +189,7 @@ defmodule RCON.Packet do
 	Returns the packet kind for a code.
 	"""
 	@spec kind_from_code(kind_code, from) :: {:ok, kind} | {:error, binary}
+	def kind_from_code(kind_code, from)
 	def kind_from_code(0, _), do: {:ok, :exec_resp}
 	def kind_from_code(2, :client), do: {:ok, :exec}
 	def kind_from_code(2, :server), do: {:ok, :auth_resp}
@@ -199,6 +200,7 @@ defmodule RCON.Packet do
 	Returns the code for a packet kind.
 	"""
 	@spec kind_to_code(kind, from) :: {:ok, kind_code} | {:error, binary}
+	def kind_to_code(kind, from)
 	def kind_to_code(:exec_resp, _), do: {:ok, 0}
 	def kind_to_code(:exec, :client), do: {:ok, 2}
 	def kind_to_code(:auth_resp, :server), do: {:ok, 2}

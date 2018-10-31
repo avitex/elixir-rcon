@@ -74,20 +74,20 @@ defmodule RCON.Client do
 	@spec exec_recv({connection, Packet.id, Packet.id}, Packet.body) :: {:ok, connection, Packet.body} | {:error, binary}
 	defp exec_recv(args = {conn, cmd_id, end_id}, body) do
 		case recv(conn) do
-			{:ok, {:exec_resp, id, new_body, _}} ->
-				cond do
-					# If the id of the packet is the same as the command we sent,
-					# the packet contains the response, or part of.
-					id == cmd_id -> exec_recv(args, body <> new_body)
-					# If the id of the packet is the same of the empty exec_resp we sent,
-					# we have reached the end of the response.
-					id == end_id -> {:ok, conn, body}
-					# Drop packets not that are not being tracked.
-					# This is because we can block forever if you get
-					# the password wrong (tested with CS:GO server Nov 2016)
-					# as the second exec_resp isn't sent for some reason.
-					true -> exec_recv(args, body)
-				end
+			# If the id of the packet is the same as the command we sent,
+			# the packet contains the response, or part of.
+			{:ok, {:exec_resp, ^cmd_id, new_body, _}} ->
+				exec_recv(args, body <> new_body)
+			# If the id of the packet is the same of the empty exec_resp we sent,
+			# we have reached the end of the response.
+			{:ok, {:exec_resp, ^end_id, _, _}} ->
+				{:ok, conn, body}
+			# Drop packets not that are not being tracked.
+			# This is because we can block forever if you get
+			# the password wrong (tested with CS:GO server Nov 2016)
+			# as the second exec_resp isn't sent for some reason.
+			{:ok, {:exec_resp, _, _, _}} ->
+				exec_recv(args, body)
 			{:ok, {kind, _, _, _}} ->
 				{:error, @unexpected_kind_error <> ": #{kind}"}
 			{:error, err} ->
@@ -110,7 +110,7 @@ defmodule RCON.Client do
 	Receive a RCON packet.
 	"""
 	@spec recv(connection) :: {:ok, Packet.t} | {:error, binary}
-	def recv({socket, _}) do
+	def recv(_conn = {socket, _}) do
 		with {:ok, size_bytes} <- Socket.Stream.recv(socket, Packet.size_part_len),
 		     {:ok, size} <- Packet.decode_size(size_bytes),
 		     {:ok, payload} <- Socket.Stream.recv(socket, size),

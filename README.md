@@ -4,7 +4,7 @@
 
 # RCON
 
-**Implementation of the [Source RCON Protocol](https://developer.valvesoftware.com/wiki/Source_RCON_Protocol).**
+**Implementation of the [Source RCON Protocol](https://developer.valvesoftware.com/wiki/Source_RCON_Protocol).**  
 Documentation hosted on [hexdocs](https://hexdocs.pm/rcon).
 
 ## Installation
