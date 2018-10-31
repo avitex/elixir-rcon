@@ -1,7 +1,7 @@
 defmodule RCON.Mixfile do
 	use Mix.Project
 
-	@version "0.2.0"
+	@version "0.2.1"
 
 	@description """
 	Source compatible RCON implementation
@@ -32,7 +32,7 @@ defmodule RCON.Mixfile do
 
 	defp package, do: [
 		name: :rcon,
-		files: ["lib", "mix.exs", "README.md", "LICENSE.md"],
+		files: ["lib", "mix.exs", "README.md", "LICENSE"],
 		maintainers: ["James Dyson"],
 		licenses: ["MIT"],
 		links: %{"GitHub" => "https://github.com/avitex/elixir-rcon"}
