@@ -12,8 +12,6 @@ defmodule RCON.Client do
 
 	@auth_failed_id Packet.auth_failed_id
 
-	@auth_failed_error "Authentication failed"
-	@unexpected_kind_error "Unexpected packet kind"
 	@unexpected_packet_error "Unexpected packet ID or kind"
 
 	@doc """
@@ -29,15 +27,23 @@ defmodule RCON.Client do
 
 	@doc """
 	Authenticate a connection given a password.
+
+	## Examples
+
+	    # Successful auth
+	    {:ok, conn, true} = RCON.Client.authenticate(conn, "correct-password")
+	    # Failed auth
+		{:ok, conn, false} = RCON.Client.authenticate(conn, "bad-password")
+
 	"""
-	@spec authenticate(connection, binary) :: {:ok, connection} | {:error, binary}
+	@spec authenticate(connection, binary) :: {:ok, connection, boolean} | {:error, binary}
 	def authenticate(conn, password) do
 		with {:ok, conn, packet_id} <- send(conn, :auth, password) do
 			authenticate_recv(conn, packet_id)
 		end
 	end
 
-	@spec authenticate_recv(connection, Packet.id) :: {:ok, connection} | {:error, binary}
+	@spec authenticate_recv(connection, Packet.id) :: {:ok, connection, boolean} | {:error, binary}
 	defp authenticate_recv(conn, packet_id) do
 		case recv(conn) do
 			# Drop any exec_resp packets (was a problem with CSGO?)
@@ -46,11 +52,12 @@ defmodule RCON.Client do
 				authenticate_recv(conn, packet_id)
 			# Handle successful auth
 			{:ok, {:auth_resp, ^packet_id, _, _}} ->
-				{:ok, conn}
+				{:ok, conn, true}
+			# Handle failed auth
 			{:ok, {:auth_resp, @auth_failed_id, _, _}} ->
-				{:error, @auth_failed_error}
+				{:ok, conn, false}
 			{:ok, {bad_kind, bad_id, _, _}} ->
-				{:error, @unexpected_packet_error <> ": #{bad_id}, #{bad_kind}"}
+				{:error, unexpected_packet_error(bad_kind, bad_id)}
 			{:error, err} ->
 				{:error, err}
 		end
@@ -58,6 +65,11 @@ defmodule RCON.Client do
 
 	@doc """
 	Execute a command.
+
+	## Examples
+
+	    {:ok, conn, "command response..."} = RCON.Client.exec(conn, "command...")
+
 	"""
 	@spec exec(connection, binary) :: {:ok, connection, binary} | {:error, binary}
 	def exec(conn, command) do
@@ -88,8 +100,8 @@ defmodule RCON.Client do
 			# as the second exec_resp isn't sent for some reason.
 			{:ok, {:exec_resp, _, _, _}} ->
 				exec_recv(args, body)
-			{:ok, {kind, _, _, _}} ->
-				{:error, @unexpected_kind_error <> ": #{kind}"}
+			{:ok, {bad_kind, bad_id, _, _}} ->
+				{:error, unexpected_packet_error(bad_kind, bad_id)}
 			{:error, err} ->
 				{:error, err}
 		end
@@ -124,5 +136,10 @@ defmodule RCON.Client do
 		else
 			{socket, current_packet_id + 1}
 		end
+	end
+
+	@spec unexpected_packet_error(Packet.kind, Packet.id) :: binary
+	defp unexpected_packet_error(kind, id) do
+		@unexpected_packet_error <> ": kind=#{kind}, id=#{id}"
 	end
 end
