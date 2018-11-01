@@ -34,7 +34,7 @@ defmodule RCON.Client do
 	    # Successful auth
 	    {:ok, conn, true} = RCON.Client.authenticate(conn, "correct-password")
 	    # Failed auth
-		{:ok, conn, false} = RCON.Client.authenticate(conn, "bad-password")
+	    {:ok, conn, false} = RCON.Client.authenticate(conn, "bad-password")
 
 	"""
 	@spec authenticate(connection, binary) :: {:ok, connection, boolean} | {:error, binary}
