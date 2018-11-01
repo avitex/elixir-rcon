@@ -157,14 +157,8 @@ defmodule RCON.Packet do
 	Decodes a packet size.
 	"""
 	@spec decode_size(binary) :: {:ok, size} | {:error, binary}
-	def decode_size(size_bytes) do
-		if !is_nil(size_bytes) and byte_size(size_bytes) == @size_part_len do
-			<< size :: 32-signed-integer-little >> = size_bytes
-			{:ok, size}
-		else
-			{:error, @bad_packet_size_error}
-		end
-	end
+	def decode_size(<< size :: 32-signed-integer-little >>), do: {:ok, size}
+	def decode_size(_), do: {:error, @bad_packet_size_error}
 
 	@doc """
 	Decodes a packet payload from transmission.

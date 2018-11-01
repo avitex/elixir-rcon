@@ -12,7 +12,8 @@ defmodule RCON.Client do
 
 	@auth_failed_id Packet.auth_failed_id
 
-	@unexpected_packet_error "Unexpected packet ID or kind"
+	@unexpected_packet_error "Unexpected packet"
+	@unexpected_end_of_stream_error "Unexpected end of stream"
 
 	@doc """
 	Connects to an RCON server.
@@ -123,10 +124,17 @@ defmodule RCON.Client do
 	"""
 	@spec recv(connection) :: {:ok, Packet.t} | {:error, binary}
 	def recv(_conn = {socket, _}) do
-		with {:ok, size_bytes} <- Socket.Stream.recv(socket, Packet.size_part_len),
+		with {:ok, size_bytes} when is_binary(size_bytes) <- Socket.Stream.recv(socket, Packet.size_part_len),
 		     {:ok, size} <- Packet.decode_size(size_bytes),
-		     {:ok, payload} <- Socket.Stream.recv(socket, size),
-		     do: Packet.decode_payload(size, payload, :server)
+			 {:ok, payload_bytes} when is_binary(payload_bytes) <- Socket.Stream.recv(socket, size) do
+			Packet.decode_payload(size, payload_bytes, :server)
+		else
+			# When stream recv returns nil
+			{:ok, nil} ->
+				{:error, @unexpected_end_of_stream_error}
+			{:error, err} ->
+				{:error, err}
+		end
 	end
 
 	@spec next_packet_id(connection) :: connection

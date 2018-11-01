@@ -28,7 +28,7 @@ Documentation hosted on [hexdocs](https://hexdocs.pm/rcon).
 
   ```elixir
   {:ok, conn} = RCON.Client.connect("127.0.0.1", 27084)
-  {:ok, conn} = RCON.Client.authenticate(conn, "password")
+  {:ok, conn, true} = RCON.Client.authenticate(conn, "password")
   {:ok, _conn, result} = RCON.Client.exec(conn, "status")
   
   IO.inspect result
