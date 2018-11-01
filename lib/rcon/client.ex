@@ -112,7 +112,7 @@ defmodule RCON.Client do
 	"""
 	@spec send(connection, Packet.kind, Packet.body) :: {:ok, connection, Packet.id} | {:error, binary}
 	def send(conn, kind, body) do
-		{socket, packet_id} = conn = increment_packet_id(conn)
+		{socket, packet_id} = conn = next_packet_id(conn)
 		with {:ok, packet_raw} <- Packet.create_and_encode(kind, body, packet_id, :client),
 		     :ok <- Socket.Stream.send(socket, packet_raw),
 		     do: {:ok, conn, packet_id}
@@ -129,8 +129,8 @@ defmodule RCON.Client do
 		     do: Packet.decode_payload(size, payload, :server)
 	end
 
-	@spec increment_packet_id(connection) :: connection
-	defp increment_packet_id({socket, current_packet_id}) do
+	@spec next_packet_id(connection) :: connection
+	defp next_packet_id({socket, current_packet_id}) do
 		if current_packet_id == Packet.max_id do
 			{socket, Packet.initial_id}
 		else
