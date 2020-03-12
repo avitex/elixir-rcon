@@ -67,13 +67,34 @@ defmodule RCON.Client do
 	@doc """
 	Execute a command.
 
+	Normally, two RCON requests will be sent: The original command, and a second dummy request.  When we receive the response to the second request, we know the first request has finished sending its entire response.  This allows us to handle multi-packet responses cleanly.
+
+	However, if the `single_packet` option is set, then only a single RCON request will be sent, and the first response packet received will be returned.  This should be enabled for certain games that violate the RCON protocol, such as Minecraft and Factorio.
+
 	## Examples
 
 	    {:ok, conn, "command response..."} = RCON.Client.exec(conn, "command...")
 
+	    {:ok, conn, "command response..."} = RCON.Client.exec(conn, "command...", single_packet: true)
+
 	"""
-	@spec exec(connection, binary) :: {:ok, connection, binary} | {:error, binary}
-	def exec(conn, command) do
+	@spec exec(connection, binary, options) :: {:ok, connection, binary} | {:error, binary}
+	def exec(conn, command, options \\ []) do
+		case Keyword.get(options, :single_packet, false) do
+			true -> exec_single(conn, command)
+			false -> exec_multi(conn, command)
+		end
+	end
+
+	@spec exec_single(connection, binary) :: {:ok, connection, binary} | {:error, binary}
+	defp exec_single(conn, command) do
+		# Send a single command, with no follow-up.
+		{:ok, conn, cmd_id} = send(conn, :exec, command) # Send the command
+		exec_recv({conn, cmd_id, nil}, "") # Receive the response.
+	end
+
+	@spec exec_multi(connection, binary) :: {:ok, connection, binary} | {:error, binary}
+	defp exec_multi(conn, command) do
 		# We first send the command, followed by sending an empty exec_resp.
 		# The RCON server should respond in order of the messages received,
 		# and also mirror back the empty exec_resp.
@@ -90,7 +111,10 @@ defmodule RCON.Client do
 			# If the id of the packet is the same as the command we sent,
 			# the packet contains the response, or part of.
 			{:ok, {:exec_resp, ^cmd_id, new_body, _}} ->
-				exec_recv(args, body <> new_body)
+				case end_id do
+					nil -> {:ok, conn, new_body} # single-packet mode
+					_ -> exec_recv(args, body <> new_body)
+				end
 			# If the id of the packet is the same of the empty exec_resp we sent,
 			# we have reached the end of the response.
 			{:ok, {:exec_resp, ^end_id, _, _}} ->
