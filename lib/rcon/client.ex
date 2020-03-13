@@ -5,8 +5,9 @@ defmodule RCON.Client do
 
   alias RCON.Packet
 
-  @type connection :: {Socket.TCP.t(), Packet.id()}
+  @type connection :: {Socket.TCP.t(), Packet.id(), boolean()}
   @type options :: [
+          multi: boolean,
           timeout: timeout
         ]
 
@@ -17,14 +18,27 @@ defmodule RCON.Client do
 
   @doc """
   Connects to an RCON server.
+
+  # Single/multi packet response support
+
+  When sending a command with multi packet response support enabled (default),
+  the original command is sent followed by a second dummy request. When the
+  response to the second request is received, we know the first request has
+  finished sending its entire response. This is how multi-packet responses work.
+
+  Games such as Minecraft and Factorio don't support multi-packet responses well
+  or at all. To support them configure the connection as `multi: false` and only
+  a single RCON request will be sent and the first response packet received will
+  be returned.
   """
   @spec connect(Socket.Address.t(), :inet.port_number(), options) ::
-          {:ok, connection} | {:error, Socket.Error.t()}
+          {:ok, connection} | {:error, %Socket.Error{}}
   def connect(address, port, options \\ []) do
+    multi = Keyword.get(options, :multi, true)
     timeout = Keyword.get(options, :timeout, :infinity)
 
     with {:ok, socket} <- Socket.TCP.connect(address, port, timeout: timeout, as: :binary) do
-      {:ok, {socket, Packet.initial_id()}}
+      {:ok, {socket, Packet.initial_id(), multi}}
     end
   end
 
@@ -74,36 +88,22 @@ defmodule RCON.Client do
   @doc """
   Execute a command.
 
-  Normally, two RCON requests will be sent: The original command, and a second dummy request.  When we receive the response to the second request, we know the first request has finished sending its entire response.  This allows us to handle multi-packet responses cleanly.
-
-  However, if the `single_packet` option is set, then only a single RCON request will be sent, and the first response packet received will be returned.  This should be enabled for certain games that violate the RCON protocol, such as Minecraft and Factorio.
-
   ## Examples
-
+      # Send a command given a RCON connection
       {:ok, conn, "command response..."} = RCON.Client.exec(conn, "command...")
 
-      {:ok, conn, "command response..."} = RCON.Client.exec(conn, "command...", single_packet: true)
-
   """
-  @spec exec(connection, binary, options) :: {:ok, connection, binary} | {:error, binary}
-  def exec(conn, command, options \\ []) do
-    case Keyword.get(options, :single_packet, false) do
-      true -> exec_single(conn, command)
-      false -> exec_multi(conn, command)
-    end
-  end
-
-  @spec exec_single(connection, binary) :: {:ok, connection, binary} | {:error, binary}
-  defp exec_single(conn, command) do
-    # Send a single command, with no follow-up.
-    # Send the command
+  @spec exec(connection, binary) :: {:ok, connection, binary} | {:error, binary}
+  # Single packet response support
+  def exec(conn = {_, _, false}, command) do
+    # Send the command.
     {:ok, conn, cmd_id} = send(conn, :exec, command)
-    # Receive the response.
+    # Receive the response expecting a single response.
     exec_recv({conn, cmd_id, nil}, "")
   end
 
-  @spec exec_multi(connection, binary) :: {:ok, connection, binary} | {:error, binary}
-  defp exec_multi(conn, command) do
+  # Multi packet response support
+  def exec(conn = {_, _, true}, command) do
     # We first send the command, followed by sending an empty exec_resp.
     # The RCON server should respond in order of the messages received,
     # and also mirror back the empty exec_resp.
@@ -117,18 +117,18 @@ defmodule RCON.Client do
          do: exec_recv({conn, cmd_id, end_id}, "")
   end
 
-  @spec exec_recv({connection, Packet.id(), Packet.id()}, Packet.body()) ::
+  @spec exec_recv({connection, Packet.id(), Packet.id() | nil}, Packet.body()) ::
           {:ok, connection, Packet.body()} | {:error, binary}
   defp exec_recv(args = {conn, cmd_id, end_id}, body) do
     case recv(conn) do
       # If the id of the packet is the same as the command we sent,
       # the packet contains the response, or part of.
+      # If `end_id` is `nil` the caller expects a single response.
+      {:ok, {:exec_resp, ^cmd_id, single_body, _}} when is_nil(end_id) ->
+        {:ok, conn, single_body}
+
       {:ok, {:exec_resp, ^cmd_id, new_body, _}} ->
-        case end_id do
-          # single-packet mode
-          nil -> {:ok, conn, new_body}
-          _ -> exec_recv(args, body <> new_body)
-        end
+        exec_recv(args, body <> new_body)
 
       # If the id of the packet is the same of the empty exec_resp we sent,
       # we have reached the end of the response.
@@ -156,7 +156,7 @@ defmodule RCON.Client do
   @spec send(connection, Packet.kind(), Packet.body()) ::
           {:ok, connection, Packet.id()} | {:error, binary}
   def send(conn, kind, body) do
-    {socket, packet_id} = conn = next_packet_id(conn)
+    {socket, packet_id, _} = conn = next_packet_id(conn)
 
     with {:ok, packet_raw} <- Packet.create_and_encode(kind, body, packet_id, :client),
          :ok <- Socket.Stream.send(socket, packet_raw),
@@ -167,7 +167,7 @@ defmodule RCON.Client do
   Receive a RCON packet.
   """
   @spec recv(connection) :: {:ok, Packet.t()} | {:error, binary}
-  def recv(_conn = {socket, _}) do
+  def recv(_conn = {socket, _, _}) do
     with {:ok, size_bytes} when is_binary(size_bytes) <-
            Socket.Stream.recv(socket, Packet.size_part_len()),
          {:ok, size} <- Packet.decode_size(size_bytes),
@@ -184,11 +184,11 @@ defmodule RCON.Client do
   end
 
   @spec next_packet_id(connection) :: connection
-  defp next_packet_id({socket, current_packet_id}) do
+  defp next_packet_id({socket, current_packet_id, multi}) do
     if current_packet_id == Packet.max_id() do
-      {socket, Packet.initial_id()}
+      {socket, Packet.initial_id(), multi}
     else
-      {socket, current_packet_id + 1}
+      {socket, current_packet_id + 1, multi}
     end
   end
 

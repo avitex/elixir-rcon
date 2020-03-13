@@ -15,10 +15,12 @@ defmodule RCON.Mixfile do
       deps: deps(),
       package: package(),
       description: @description,
-
-      # Documentation
       name: "RCON",
-      docs: docs()
+      docs: docs(),
+      dialyzer: [
+        plt_add_deps: :project,
+      ]
+
     ]
 
   # Configuration for the OTP application
@@ -30,7 +32,8 @@ defmodule RCON.Mixfile do
   defp deps,
     do: [
       {:socket, "~> 0.3"},
-      {:ex_doc, "~> 0.19", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.19", only: :dev, runtime: false},
+      {:dialyxir, "~> 0.5", only: :dev, runtime: false}
     ]
 
   defp package,
