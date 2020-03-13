@@ -1,3 +1,3 @@
 defmodule RCON do
-	@moduledoc false
+  @moduledoc false
 end
