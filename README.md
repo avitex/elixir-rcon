@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/avitex/elixir-rcon.svg?branch=master)](https://travis-ci.org/avitex/elixir-rcon)
+[![Build Status](https://travis-ci.com/avitex/elixir-rcon.svg?branch=master)](https://travis-ci.com/avitex/elixir-rcon)
 [![Hex.pm](https://img.shields.io/hexpm/v/rcon.svg)](https://hex.pm/packages/rcon)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-blue.svg)](https://hexdocs.pm/rcon)
 
