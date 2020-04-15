@@ -33,7 +33,7 @@ defmodule RCON.Mixfile do
     do: [
       {:socket, "~> 0.3"},
       {:ex_doc, "~> 0.19", only: :dev, runtime: false},
-      {:dialyxir, "~> 0.5", only: :dev, runtime: false}
+      {:dialyxir, "~> 1.0", only: :dev, runtime: false}
     ]
 
   defp package,
