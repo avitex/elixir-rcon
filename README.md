@@ -13,7 +13,7 @@ Documentation hosted on [hexdocs](https://hexdocs.pm/rcon).
 
   ```elixir
   def deps do
-    [{:rcon, "~> 0.3.0"}]
+    [{:rcon, "~> 0.4.0"}]
   end
   ```
 
