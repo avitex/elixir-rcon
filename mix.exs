@@ -18,9 +18,8 @@ defmodule RCON.Mixfile do
       name: "RCON",
       docs: docs(),
       dialyzer: [
-        plt_add_deps: :project,
+        plt_add_deps: :project
       ]
-
     ]
 
   # Configuration for the OTP application
