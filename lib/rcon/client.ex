@@ -97,9 +97,14 @@ defmodule RCON.Client do
   # Single packet response support
   def exec(conn = {_, _, false}, command) do
     # Send the command.
-    {:ok, conn, cmd_id} = send(conn, :exec, command)
-    # Receive the response expecting a single response.
-    exec_recv({conn, cmd_id, nil}, "")
+    case send(conn, :exec, command) do
+      {:ok, conn, cmd_id} ->
+        # Receive the response expecting a single response.
+        exec_recv({conn, cmd_id, nil}, "")
+
+      {:error, err} ->
+        {:error, err}
+    end
   end
 
   # Multi packet response support
