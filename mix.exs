@@ -30,7 +30,7 @@ defmodule RCON.Mixfile do
 
   defp deps,
     do: [
-      {:socket, "~> 0.3"},
+      {:socket2, git: "git@github.com:witchtails/elixir-socket2.git", branch: "master"},
       {:ex_doc, "~> 0.19", only: :dev, runtime: false},
       {:dialyxir, "~> 1.0", only: :dev, runtime: false}
     ]
