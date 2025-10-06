@@ -16,10 +16,7 @@ defmodule RCON.MixProject do
       package: package(),
       description: @description,
       name: "RCON",
-      docs: docs(),
-      dialyzer: [
-        plt_add_deps: :project
-      ]
+      docs: docs()
     ]
 
   # Configuration for the OTP application
@@ -30,9 +27,8 @@ defmodule RCON.MixProject do
 
   defp deps,
     do: [
-      {:socket2, "~> 2.1"},
       {:ex_doc, "~> 0.38", only: :dev, runtime: false},
-      {:dialyxir, "~> 1.4", only: :dev, runtime: false}
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
 
   defp package,
