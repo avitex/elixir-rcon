@@ -30,7 +30,6 @@ defmodule RCON.MixProject do
 
   defp deps,
     do: [
-      {:socket2, "~> 2.1"},
       {:ex_doc, "~> 0.38", only: :dev, runtime: false},
       {:dialyxir, "~> 1.4", only: :dev, runtime: false}
     ]

@@ -5,7 +5,11 @@ defmodule RCON.Client do
 
   alias RCON.Packet
 
-  @type connection :: {Socket.TCP.t(), Packet.id(), boolean()}
+  @opaque socket :: port
+
+  @type addr :: String.t() | :inet.ip_address()
+  @type port_number :: :inet.port_number()
+  @type connection :: {socket, Packet.id(), boolean()}
   @type options :: [
           multi: boolean,
           timeout: timeout
@@ -31,14 +35,15 @@ defmodule RCON.Client do
   a single RCON request will be sent and the first response packet received will
   be returned.
   """
-  @spec connect(Socket.Address.t(), :inet.port_number(), options) ::
-          {:ok, connection} | {:error, %Socket.Error{}}
-  def connect(address, port, options \\ []) do
+  @spec connect(addr(), port_number(), options) ::
+          {:ok, connection} | {:error, RCON.Error.t()}
+  def connect(address, port, options \\ []) when address |> is_binary do
     multi = Keyword.get(options, :multi, true)
     timeout = Keyword.get(options, :timeout, :infinity)
 
-    with {:ok, socket} <- Socket.TCP.connect(address, port, timeout: timeout, as: :binary) do
-      {:ok, {socket, Packet.initial_id(), multi}}
+    case :gen_tcp.connect(String.to_charlist(address), port, [{:active, false}, :binary], timeout) do
+      {:ok, socket} -> {:ok, {socket, Packet.initial_id(), multi}}
+      {:error, code} -> {:error, %RCON.Error{message: socket_error(code)}}
     end
   end
 
@@ -164,7 +169,7 @@ defmodule RCON.Client do
     {socket, packet_id, _} = conn = next_packet_id(conn)
 
     with {:ok, packet_raw} <- Packet.create_and_encode(kind, body, packet_id, :client),
-         :ok <- Socket.Stream.send(socket, packet_raw),
+         :ok <- :gen_tcp.send(socket, packet_raw),
          do: {:ok, conn, packet_id}
   end
 
@@ -174,9 +179,9 @@ defmodule RCON.Client do
   @spec recv(connection) :: {:ok, Packet.t()} | {:error, binary}
   def recv(_conn = {socket, _, _}) do
     with {:ok, size_bytes} when is_binary(size_bytes) <-
-           Socket.Stream.recv(socket, Packet.size_part_len()),
+           :gen_tcp.recv(socket, Packet.size_part_len()),
          {:ok, size} <- Packet.decode_size(size_bytes),
-         {:ok, payload_bytes} when is_binary(payload_bytes) <- Socket.Stream.recv(socket, size) do
+         {:ok, payload_bytes} when is_binary(payload_bytes) <- :gen_tcp.recv(socket, size) do
       Packet.decode_payload(size, payload_bytes, :server)
     else
       # When stream recv returns nil
@@ -186,6 +191,14 @@ defmodule RCON.Client do
       {:error, err} ->
         {:error, err}
     end
+  end
+
+  @doc """
+  Close the RCON socket.
+  """
+  @spec close(connection) :: :ok
+  def close(_conn = {socket, _, _}) do
+    :gen_tcp.close(socket)
   end
 
   @spec next_packet_id(connection) :: connection
@@ -200,5 +213,16 @@ defmodule RCON.Client do
   @spec unexpected_packet_error(Packet.kind(), Packet.id()) :: binary
   defp unexpected_packet_error(kind, id) do
     @unexpected_packet_error <> ": kind=#{kind}, id=#{id}"
+  end
+
+  @spec socket_error(:inet.posix()) :: String.t()
+  defp socket_error(code) do
+    case :inet.format_error(code) do
+      ~c"unknown POSIX error" ->
+        nil
+
+      message ->
+        message |> to_string
+    end
   end
 end
